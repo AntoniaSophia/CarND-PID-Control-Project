@@ -10,9 +10,9 @@ using namespace std;
 PID::PID() {
   isInitialized = false;
   bestError = 9999.0;
-  p_error = 0.1;
-  i_error = 0.1;
-  d_error = 0.1;
+  p_error = -0.02;
+  i_error = -0.02;
+  d_error = -0.02;
  
 }
 
