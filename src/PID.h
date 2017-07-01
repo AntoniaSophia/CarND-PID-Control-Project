@@ -1,8 +1,10 @@
-#ifndef PID_H
-#define PID_H
+#pragma once
+
+#include <vector>
+#include <chrono>
 
 class PID {
-public:
+ public:
   /*
   * Errors
   */
@@ -17,6 +19,15 @@ public:
   double Ki;
   double Kd;
 
+  std::chrono::time_point<std::chrono::system_clock> lastTime;
+  std::vector<double> historyCTE;
+
+  double steeringAngle;
+
+  bool isInitialized;
+
+  double prev_cte;
+  double int_cte;
   /*
   * Constructor
   */
@@ -41,6 +52,10 @@ public:
   * Calculate the total PID error.
   */
   double TotalError();
-};
 
-#endif /* PID_H */
+  /*
+  * Calculate the angle
+  */
+  double calcPID(double cte);
+
+};
