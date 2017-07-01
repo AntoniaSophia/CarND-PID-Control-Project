@@ -20,14 +20,16 @@ class PID {
   double Kd;
 
   std::chrono::time_point<std::chrono::system_clock> lastTime;
-  std::vector<double> historyCTE;
-
-  double steeringAngle;
 
   bool isInitialized;
 
+  double diff_cte;
   double prev_cte;
   double int_cte;
+
+  double bestError;
+  double totalError;
+
   /*
   * Constructor
   */
