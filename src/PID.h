@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <chrono>
+#include <thread>
 
 class PID {
  public:
@@ -29,6 +30,7 @@ class PID {
 
   double bestError;
   double totalError;
+  double deltaTime;
 
   /*
   * Constructor
@@ -60,4 +62,12 @@ class PID {
   */
   double calcPID(double cte);
 
+  /*
+  * Workerthread implementation 
+  */
+  bool twiddleWait = true;
+  void startTwiddle();
+  void twiddle();
+  std::thread* workerThread;
+  bool stopThread = false;
 };
