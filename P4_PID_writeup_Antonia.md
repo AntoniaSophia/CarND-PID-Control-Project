@@ -13,11 +13,6 @@ The goals / steps of this project are the following:
 ## Rubric Points
 ###Here I will consider the [rubric points](https://review.udacity.com/#!/rubrics/824/view) individually and describe how I addressed each point in my implementation.  
 
----
-###Files Submitted & Code Quality
-
-* link to the annotated output video of the project_video.mp4 at [Project video](https://github.com/AntoniaSophia/CarND-Advanced-Lane-Lines/blob/master/output_videos/project_video.mp4)
-* link to the annotated output video of the challenge_video.mp4 at [Challenge video](https://github.com/AntoniaSophia/CarND-Advanced-Lane-Lines/blob/master/output_videos/challenge_video.avi)
 
 ###Explanation of P,I,D values
 
@@ -27,7 +22,7 @@ The goals / steps of this project are the following:
 
 Discussion on proportional part P
 * P has a fast reaction time
-* P tends to strong overshooting (e.g. only using P means strong oscillations)
+* P tends to strong overshooting (e.g. only using P means strong oscillations which I observed when setting I=D=0)
 * and thus tends to reduce the stability
 
 Discussion on integral part I
