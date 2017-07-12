@@ -51,8 +51,8 @@ int main() {
   // pid.Init(0.0997544, 0.126883, 0.122702);
 
   // Final values with thread-twiddle optimized
-  //pid.Init(0.1167219, 0.132172, 0.133131);
-  pid.Init(0, 0.13,0);
+  pid.Init(0.1167219, 0.132172, 0.133131);
+  //pid.Init(0, 0.13,0);
   // ********************************************
 
   // I have implemented two twiddle algorithms
