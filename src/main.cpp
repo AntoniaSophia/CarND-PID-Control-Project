@@ -7,9 +7,13 @@
 // for convenience
 using json = nlohmann::json;
 
+// Three possibilities:
+// useTwiddle = none : twiddle algorithm deactived
+// useTwiddle = simple : use twiddle algo in main.cpp
+// useTwiddle = thread : use twiddle algo as worker thread in PID.cpp
 enum TwiddleModes { none, simple, thread };
 
-TwiddleModes useTwiddle = none;
+TwiddleModes useTwiddle = thread;
 
 // For converting back and forth between radians and degrees.
 constexpr double pi() { return M_PI; }
@@ -39,17 +43,21 @@ int main() {
 
   PID pid;
 
-  // TODO: Initialize the pid variable.
-  //  pid.Init(0.5,1.33,3);
+  // ********************************************
+  // Initialize the pid variable.
+  // pid.Init(0.5,1.33,3);
   // pid.Init(0.5,1.43,3.06);
+  // pid.Init(0.014,0.111,0.112);
+  // pid.Init(0.0997544, 0.126883, 0.122702);
 
-  // pid.Init(0.124,0.111,0.112);
-  //pid.Init(0.0997544, 0.126883, 0.122702);
+  // Final values with thread-twiddle optimized
+  //pid.Init(0.1167219, 0.132172, 0.133131);
+  pid.Init(0, 0.13,0);
+  // ********************************************
 
-  //With thread-twiddle optimized
-  pid.Init(0.0967219, 0.132172, 0.133131);
-
-
+  // I have implemented two twiddle algorithms
+  // 1) in the main.cpp method
+  // 2) as separate worker thread in PID.cpp (useTwiddle = True)
   if (useTwiddle == thread) {
     pid.startTwiddle();
   }
@@ -71,23 +79,31 @@ int main() {
           double angle = std::stod(j[1]["steering_angle"].get<std::string>());
           double steer_value;
           /*
-          * TODO: Calcuate steering value here, remember the steering value is
-          * [-1, 1].
+          * Calcuate steering value here, remember the steering value is [-1, 1]
           * NOTE: Feel free to play around with the throttle and speed. Maybe
-          * use
-          * another PID controller to control the speed!
+          * use another PID controller to control the speed!
           */
-          // set true in order to use twiddle
+
+          // in case of no twiddle or twiddle in PID.cpp
+          // start with Updating the error and calculate the PID response
           if ((useTwiddle == none) || (useTwiddle == thread)) {
             pid.UpdateError(cte);
             steer_value = pid.calcPID(cte);
+
+            // in case of twiddle in worker thread of PID.cpp
+            // additionally calculate the driven distance
+            // in order to resample next twiddle step after
+            // resampleDistance meters
+            int resampleDistance = 500;
+
             if (useTwiddle == thread) {
-              distance += pid.deltaTime * speed;
-              if (distance > 100) {
-                pid.twiddleWait = false;
-                std::cout << "<Besterror:" << pid.bestError <<" Kp: " << pid.Kp << " Ki: " << pid.Ki
+              distance += pid.deltaTime * speed;   // distance = time * speed
+              if (distance > resampleDistance) {
+                pid.twiddleWait = false;  // now initialte resample
+                std::cout << "<Besterror:" << pid.bestError <<" Kp: "
+                          << pid.Kp << " Ki: " << pid.Ki
                           << " Kd: " << pid.Kd << std::endl;
-                distance = 0.0;
+                distance = 0.0;  // reset
               }
             } else {
               // DEBUG
@@ -97,21 +113,28 @@ int main() {
 
             json msgJson;
             msgJson["steering_angle"] = steer_value;
+
+            // implement a trivial controller for throttle
+            // in case of steering angles > 0.15 --> reduce speed
+            // otherwise go "full speed ahead"
             if (fabs(steer_value) < 0.15) {
-              msgJson["throttle"] = 1.0;
+              msgJson["throttle"] = 0.6;
             } else {
               msgJson["throttle"] = 0.2;
             }
             auto msg = "42[\"steer\"," + msgJson.dump() + "]";
-            if (useTwiddle == none){
+            if (useTwiddle == none) {
               std::cout << msg << std::endl;
             }
-            
-            ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
-          } else if (useTwiddle == simple) {
 
+            ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
+
+          // here now is the simple twiddle in main.cpp
+          } else if (useTwiddle == simple) {
             counter++;
 
+            // don't use distance here, but iterations
+            // reset after 2500 iterations (close to one round in the track)
             if (counter % 2500 == 0) {
               std::cout << "Twiddle-Iteration: " << counter
                         << "\t best error: " << pid.bestError
@@ -127,10 +150,16 @@ int main() {
               std::cout << "Best Error: " << pid.bestError
                         << " Total Error:  " << pid.totalError << std::endl;
 
+              // i = the PID parameter to be optimized
+              // i = 0 : Ki , integral part
+              // i = 1 : Kp , proportional part
+              // i = 2 : Kd , differential part
               int i = -1;
               int factor1 = 10;
               int factor2 = 1;
 
+              // just optimize a different parameter after factor1*factor2
+              // iterations
               if (cycle < 1 * factor2 * factor1) {
                 i = 1;
               } else if (cycle < 2 * factor2 * factor1) {
@@ -150,21 +179,18 @@ int main() {
 
               twiddle_current_error = pid.totalError;
 
-              if (twiddle_current_error <=
-                  pid.bestError) { // last update worked, keep going
-
+              // last optimization seems to work - go!
+              if (twiddle_current_error <= pid.bestError) {
                 mod_params[i] *= 1.1;
                 pid.bestError = twiddle_current_error;
-                // exit, since increase worked, -> loop
-              } else {
 
+              // else try to decrease value
+              } else {
                 params[i] -= 2 * mod_params[i];
                 twiddle_current_error = pid.totalError;
 
-                // check if decrease worked, if not, do a "reset" on the
-                // parameters
+                // check if decrease works
                 if (twiddle_current_error <= pid.bestError) {
-
                   pid.bestError = twiddle_current_error;
                   mod_params[i] *= 1.1;
                 } else {
@@ -198,7 +224,15 @@ int main() {
 
               json msgJson;
               msgJson["steering_angle"] = steer_value;
-              msgJson["throttle"] = 0.8;
+
+              // implement a trivial controller for throttle
+              // in case of steering angles > 0.15 --> reduce speed
+              // otherwise go "full speed ahead"
+              if (fabs(steer_value) < 0.15) {
+                msgJson["throttle"] = 0.6;
+              } else {
+                msgJson["throttle"] = 0.2;
+              }
               auto msg = "42[\"steer\"," + msgJson.dump() + "]";
               // std::cout << msg << std::endl;
               ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);

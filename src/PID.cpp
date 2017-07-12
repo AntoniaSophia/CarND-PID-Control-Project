@@ -37,16 +37,21 @@ void PID::Init(double Kp, double Ki, double Kd) {
 
 void PID::UpdateError(double cte) {
   totalError += cte * cte;
-
   diff_cte = cte - prev_cte;
   prev_cte = cte;
   int_cte += cte;
+
+  // remove problem of integral at high speed:
+  // reset the integral when we have reached ~0 for cte
+  if (cte < 0.1) {
+    int_cte = 0;
+  }
 }
 
 double PID::TotalError() { return totalError; }
 
 double PID::calcPID(double cte) {
-
+  // calculate the time diff between last calculation and now
   std::chrono::time_point<std::chrono::system_clock> currentTime =
       std::chrono::system_clock::now();
   std::chrono::duration<double> elapsed_seconds = currentTime - lastTime;
@@ -56,9 +61,12 @@ double PID::calcPID(double cte) {
   // std::cout << "elapsed time: " <<  deltaTime << "s\n";
 
   lastTime = std::chrono::system_clock::now();
+
+  // now the heart of the PID controller.....
   double steer =
       -Kp * cte - Kd * diff_cte / deltaTime - Ki * int_cte * deltaTime;
 
+  // limit steering angles to [-1,1]
   if (steer < -1) {
     return -1;
   } else if (steer > 1) {
